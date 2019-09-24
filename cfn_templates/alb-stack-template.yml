@@ -1,0 +1,144 @@
+Parameters:
+    VPC:
+        Type: String
+        Description: Choose which VPC the Application Load Balancer should be deployed to
+        Default: [Your VPC]
+    Subnet1:
+        Description: Choose which subnets the Application Load Balancer should be deployed to
+        Type: String
+        Default: [Your Subnet]
+    Subnet2:
+        Description: Choose which subnets the Application Load Balancer should be deployed to
+        Type: String
+        Default: [Your Subnet]
+    SecurityGroup:
+        Description: Select the Security Group to apply to the Application Load Balancer
+        Type: String
+        Default: [Your Security Group]
+    TargetIPPROD:
+        Description: Target IP
+        Type: String
+    TargetIPSTAGE:
+        Description: Target IP
+        Type: String
+Resources:
+    ProdDNS:
+        Type: AWS::Route53::RecordSet
+        Properties:
+          HostedZoneName: [Your HostZoneName]
+          Comment: Prod DNS
+          Name: [Your Prod URL]
+          Type: CNAME
+          TTL: '1'
+          ResourceRecords:
+            - !GetAtt LoadBalancerPROD.DNSName
+    StagDNS:
+        Type: AWS::Route53::RecordSet
+        Properties:
+          HostedZoneName: [Your HostZoneName]
+          Comment: Stage DNS
+          Name: [Your Stage URL]
+          Type: CNAME
+          TTL: '1'
+          ResourceRecords:
+            - !GetAtt LoadBalancerSTAGE.DNSName
+
+    LoadBalancerPROD:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Subnets: 
+                - !Ref Subnet1
+                - !Ref Subnet2
+            SecurityGroups: 
+                - !Ref SecurityGroup
+    LoadBalancerListenerPROD:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            LoadBalancerArn: !Ref LoadBalancerPROD
+            Port: 80
+            Protocol: HTTP 
+            DefaultActions: 
+                - Type: forward
+                  TargetGroupArn: !Ref DefaultTargetGroupPROD
+    DefaultTargetGroupPROD:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 5
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 4
+            HealthyThresholdCount: 2
+            UnhealthyThresholdCount: 10
+            VpcId: !Ref VPC
+            Port: 80
+            Protocol: HTTP
+            TargetGroupAttributes:
+                -   
+                    Key: deregistration_delay.timeout_seconds
+                    Value: '0'
+            TargetType: ip
+            Targets:
+                -   
+                    AvailabilityZone: all
+                    Id: !Ref TargetIPPROD
+    LoadBalancerSTAGE:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Subnets: 
+                - !Ref Subnet1
+                - !Ref Subnet2
+            SecurityGroups: 
+                - !Ref SecurityGroup
+    LoadBalancerListenerSTAGE:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            LoadBalancerArn: !Ref LoadBalancerSTAGE
+            Port: 80
+            Protocol: HTTP 
+            DefaultActions: 
+                - Type: forward
+                  TargetGroupArn: !Ref DefaultTargetGroupSTAGE
+    DefaultTargetGroupSTAGE:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 5
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 4
+            HealthyThresholdCount: 2
+            UnhealthyThresholdCount: 10
+            VpcId: !Ref VPC
+            Port: 80
+            Protocol: HTTP
+            TargetGroupAttributes:
+                -   
+                    Key: deregistration_delay.timeout_seconds
+                    Value: '0'
+            TargetType: ip
+            Targets:
+                -   
+                    AvailabilityZone: all
+                    Id: !Ref TargetIPSTAGE
+Outputs:
+    LoadBalancerPROD:
+        Description: A reference to the Application Load Balancer
+        Value: !Ref LoadBalancerPROD
+    LoadBalancerUrlPROD:
+        Description: The URL of the ALB
+        Value: !GetAtt LoadBalancerPROD.DNSName
+    ListenerPROD:
+        Description: A reference to a port 80 listener
+        Value: !Ref LoadBalancerListenerPROD
+    LoadBalancerSTAGE:
+        Description: A reference to the Application Load Balancer
+        Value: !Ref LoadBalancerSTAGE
+    LoadBalancerUrlSTAGE:
+        Description: The URL of the ALB
+        Value: !GetAtt LoadBalancerSTAGE.DNSName
+    ListenerSTAGE:
+        Description: A reference to a port 80 listener
+        Value: !Ref LoadBalancerListenerSTAGE
+    TargetIPPROD:
+        Description: Target IP
+        Value: !Ref TargetIPPROD
+    TargetIPSTAGE:
+        Description: Target IP
+        Value: !Ref TargetIPSTAGE

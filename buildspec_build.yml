@@ -1,0 +1,48 @@
+version: 0.2
+phases:
+  pre_build:
+    commands:
+      #######################
+      # PREPARE NAMES and KEY
+      #######################
+      - ssh-keygen -t rsa -f id_rsa -q -P ""
+      - openssl rsa -in id_rsa -outform pem > id_rsa.pem
+      - chmod 600 id_rsa.pem
+      - echo `sed -n 's/.*APPNAME=\([0-9]*\)/\1/p' config.file`-`date +%s` > /tmp/NEWVM.file
+      - cat /tmp/NEWVM.file
+      #############################
+      # LAUNCH NEW VM FROM TEMPLATE
+      #############################
+      - python $CODEBUILD_SRC_DIR/scripts/clone_vm.py -s $VCHOST -u $VCUSER -p $VCPASS -v `cat /tmp/NEWVM.file` --template `sed -n 's/.*SRCTEMPLATE=\([0-9]*\)/\1/p' config.file` --datastore-name `sed -n 's/.*DTASTORE=\([0-9]*\)/\1/p' config.file` --resource-pool `sed -n 's/.*RSCPOOL=\([0-9]*\)/\1/p' config.file` --vm-folder `sed -n 's/.*APPFLD=\([0-9]*\)/\1/p' config.file` --power-on
+      - echo None > /tmp/ip; until [ "$(cat /tmp/ip)" != "None" ]; do python $CODEBUILD_SRC_DIR/scripts/getvmip.py  -s $VCHOST -u $VCUSER -p $VCPASS -v `cat /tmp/NEWVM.file` > /tmp/ip ;done
+  
+  build:
+    commands:
+      ########################
+      # EXECUTE BUILD SCRIPT #
+      ########################
+      - export  ip=$(cat /tmp/ip); cat id_rsa.pub | sshpass -p $VMPASS ssh -o StrictHostKeyChecking=no $VMUSER@$ip "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat > ~/.ssh/authorized_keys"
+      - scp -o StrictHostKeyChecking=no -i id_rsa.pem $CODEBUILD_SRC_DIR/buildscript.sh $VMUSER@$ip:~/
+      - ssh -o StrictHostKeyChecking=no -i id_rsa.pem $VMUSER@$ip 'chmod 755 ~/buildscript.sh;sudo ~/buildscript.sh'
+      
+      ################################
+      # BUILD THE CONFIG PROD/ STAGE #
+      ################################
+      - aws --region $AWS_REGION cloudformation describe-stacks --stack-name `sed -n 's/.*APPSTACK=\([0-9]*\)/\1/p' config.file` --query "Stacks[0].Outputs[?OutputKey == 'TargetIPPROD'].OutputValue" | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | sed "s/ //g;s/\"//g" > /tmp/PRODip
+      - aws --region $AWS_REGION cloudformation describe-stacks --stack-name `sed -n 's/.*APPSTACK=\([0-9]*\)/\1/p' config.file` --query "Stacks[0].Outputs[?OutputKey == 'TargetIPSTAGE'].OutputValue" | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | sed "s/ //g;s/\"//g" > /tmp/STAGEip
+      - ip=`cat /tmp/ip` && PRODip=`cat /tmp/PRODip` && sed "s/TARGET-IP-STAGE/$ip/g" $CODEBUILD_SRC_DIR/cfn_templates/alb-stack-conf.json > stg-tmp.json && sed "s/TARGET-IP-PROD/$PRODip/g" stg-tmp.json > stg-alb-stack-conf.json 
+      - ip=`cat /tmp/ip` && STAGEip=`cat /tmp/STAGEip` && sed "s/TARGET-IP-PROD/$ip/g" $CODEBUILD_SRC_DIR/cfn_templates/alb-stack-conf.json > prd-tmp.json && sed "s/TARGET-IP-STAGE/$ip/g" prd-tmp.json > prd-alb-stack-conf.json 
+  
+  post_build:
+    commands:
+      ###############
+      # OTHER STUFF #
+      ###############   
+      - cp $CODEBUILD_SRC_DIR/cfn_templates/alb-stack-template.yml .
+      - cat stg-alb-stack-conf.json
+      - cat prd-alb-stack-conf.json
+      - ls
+artifacts:
+  files:
+    - '*/**'
+    - '*'

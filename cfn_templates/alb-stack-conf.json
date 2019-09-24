@@ -1,0 +1,6 @@
+{
+    "Parameters" : {
+      "TargetIPPROD" : "TARGET-IP-PROD",
+      "TargetIPSTAGE" : "TARGET-IP-STAGE"
+    }
+}

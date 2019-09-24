@@ -1,0 +1,7 @@
+SRCTEMPLATE=[Your template name]
+DTASTORE=[Your datastore name]
+RSCPOOL=[Your resource pool name]
+APPFLD=[Your folder name]
+APPNAME=[Your VM name]
+APPSTACK=[Your Stake name]
+
