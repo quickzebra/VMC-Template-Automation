@@ -1,6 +1,5 @@
 # VMC-Template-Automation
 
-Automate VM template update and blue-green cut over via AWS Code Pipeline and ALB 
 
 
 One of the most powerful innovations spawned by the DevOps movement was the idea that operations departments could manage the configurations of servers and virtual machines the same way that developers manage the configurations in their software’s source code. This doesn’t simply mean command line scripts, which sysadmins were already familiar with. It means using a description language or full-fledged programming language to manipulate infrastructure in an automated, repeatable way.
